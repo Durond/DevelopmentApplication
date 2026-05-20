@@ -40,32 +40,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: |
-          pip install pytest pytest-cov pytest-progress
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-      - name: Run tests with progress bar
-        run: |
-          pytest tests/ -v \
-            --progress \
-            --cov=. \
-            --cov-report=term \
-            --tb=short \
-            --maxfail=5
-      
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-python${{ matrix.python-version }}
-          path: |
-            .coverage
-            pytest.xml
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -p "test_*.py" -v
 
       - name: Tests passed
         if: success()
-        run: echo "All 10 tests passed on Python ${{ matrix.python-version }}"
+        run: echo "✅ All tests passed on Python ${{ matrix.python-version }}"
 
   format:
     runs-on: ubuntu-latest
@@ -115,7 +95,7 @@ jobs:
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test.result }}" != "success" ] || \
              [ "${{ needs.format.result }}" != "success" ]; then
-            echo "CI failed"
+            echo " CI failed"
             exit 1
           fi
 
@@ -125,4 +105,4 @@ jobs:
             exit 1
           fi
 
-          echo "All checks passed"
+          echo " All checks passed"
