@@ -25,21 +25,27 @@ jobs:
       - name: Lint with flake8
         run: flake8 . --count --max-line-length=120 --statistics
 
-
   test:
     runs-on: ubuntu-latest
     needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ '3.12', '3.13' ]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
 
+      - name: Tests passed
+        if: success()
+        run: echo "All 10 tests passed on Python ${{ matrix.python-version }}"
 
   format:
     runs-on: ubuntu-latest
@@ -55,8 +61,7 @@ jobs:
         run: pip install black
 
       - name: Check formatting
-        run: black --check .
-
+        run: black --check --line-length 120 .
 
   security-check:
     runs-on: ubuntu-latest
@@ -74,3 +79,30 @@ jobs:
 
       - name: Security scan
         run: bandit -r . -f custom
+
+  ci-success:
+    runs-on: ubuntu-latest
+    needs: [ lint, test, format, security-check ]
+    if: always()
+    steps:
+      - name: Verify all checks
+        run: |
+          echo "lint:            ${{ needs.lint.result }}"
+          echo "test:            ${{ needs.test.result }}"
+          echo "format:          ${{ needs.format.result }}"
+          echo "security-check:  ${{ needs.security-check.result }}"
+
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.format.result }}" != "success" ]; then
+            echo "CI failed"
+            exit 1
+          fi
+
+          if [ "${{ github.ref }}" = "refs/heads/main" ] && \
+             [ "${{ needs.security-check.result }}" != "success" ]; then
+            echo "Security check failed on main"
+            exit 1
+          fi
+
+          echo "All checks passed"
